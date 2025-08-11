@@ -1,7 +1,11 @@
-# pip install openai python-telegram-bot==13.15
+# pip install openai python-telegram-bot python-dotenv
 from openai import OpenAI
-from telegram.ext import Updater, MessageHandler, Filters
+from telegram.ext import Application, MessageHandler, filters
 import os
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 OPENAI_KEY = os.environ["OPENAI_API_KEY"]
 TELEGRAM_TOKEN = os.environ["TELEGRAM_TOKEN"]
@@ -10,7 +14,7 @@ ASSISTANT_ID = os.environ["ASSISTANT_ID"]
 client = OpenAI()
 threads = {}  # chat_id -> thread_id (en memoria; luego usa Redis/DB)
 
-def handle_msg(update, context):
+async def handle_msg(update, context):
     chat_id = str(update.effective_chat.id)
     text = update.message.text
 
@@ -36,9 +40,13 @@ def handle_msg(update, context):
     # 5) última respuesta
     msgs = client.beta.threads.messages.list(thread_id=thread_id, order="desc")
     reply = msgs.data[0].content[0].text.value
-    update.message.reply_text(reply)
+    await update.message.reply_text(reply)
 
-up = Updater(TELEGRAM_TOKEN, use_context=True)
-up.dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_msg))
-up.start_polling()
-up.idle()
+async def main():
+    app = Application.builder().token(TELEGRAM_TOKEN).build()
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_msg))
+    await app.run_polling()
+
+if __name__ == "__main__":
+    import asyncio
+    asyncio.run(main())
