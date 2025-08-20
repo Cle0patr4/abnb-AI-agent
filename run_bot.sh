@@ -32,5 +32,5 @@ echo "📱 Busca tu bot en Telegram y envíale un mensaje"
 echo "🛑 Presiona Ctrl+C para detener el bot"
 echo ""
 
-# Ejecutar el bot híbrido (RAG + Airtable)
-python3 bot_hybrid.py
+# Ejecutar el bot con Pinecone (RAG + Airtable + Ejemplos)
+python3 bot_pinecone.py
