@@ -32,5 +32,5 @@ echo "📱 Busca tu bot en Telegram y envíale un mensaje"
 echo "🛑 Presiona Ctrl+C para detener el bot"
 echo ""
 
-# Ejecutar el bot
-python3 bot_v13.py
+# Ejecutar el bot híbrido (RAG + Airtable)
+python3 bot_hybrid.py
