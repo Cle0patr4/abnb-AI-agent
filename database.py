@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Módulo para manejar la base de datos SQLite
+Module to handle SQLite database
 """
 import sqlite3
 import os
@@ -13,11 +13,11 @@ class DatabaseManager:
         self.init_database()
     
     def init_database(self):
-        """Inicializar la base de datos con las tablas necesarias"""
+        """Initialize database with necessary tables"""
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
             
-            # Tabla de logs de conversaciones
+            # Conversation logs table
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS conversation_logs (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -32,7 +32,7 @@ class DatabaseManager:
                 )
             ''')
             
-            # Tabla de feedback
+            # Feedback table
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS feedback (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -53,7 +53,7 @@ class DatabaseManager:
     def log_conversation(self, user_id: str, query: str, response: str, 
                         response_time: float = None, used_rag: bool = False, 
                         used_airtable: bool = False) -> int:
-        """Registrar una conversación en la base de datos"""
+        """Log a conversation in the database"""
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
             cursor.execute('''
@@ -68,7 +68,7 @@ class DatabaseManager:
     def add_feedback(self, user_id: str, original_query: str, original_response: str,
                     feedback_type: str, feedback_text: str = None, 
                     conversation_id: int = None) -> int:
-        """Agregar feedback a una respuesta"""
+        """Add feedback to a response"""
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
             cursor.execute('''
@@ -79,7 +79,7 @@ class DatabaseManager:
             ''', (conversation_id, user_id, original_query, original_response, 
                   feedback_type, feedback_text))
             
-            # Marcar la conversación como con feedback
+            # Mark conversation as having feedback
             if conversation_id:
                 cursor.execute('''
                     UPDATE conversation_logs 
@@ -91,7 +91,7 @@ class DatabaseManager:
             return cursor.lastrowid
     
     def get_last_conversation(self, user_id: str) -> Optional[Dict[str, Any]]:
-        """Obtener la última conversación de un usuario"""
+        """Get the last conversation of a user"""
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
             cursor.execute('''
@@ -113,19 +113,19 @@ class DatabaseManager:
             return None
     
     def get_feedback_stats(self) -> Dict[str, Any]:
-        """Obtener estadísticas de feedback"""
+        """Get feedback statistics"""
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
             
-            # Total de conversaciones
+            # Total conversations
             cursor.execute('SELECT COUNT(*) FROM conversation_logs')
             total_conversations = cursor.fetchone()[0]
             
-            # Conversaciones con feedback
+            # Conversations with feedback
             cursor.execute('SELECT COUNT(*) FROM conversation_logs WHERE feedback_given = TRUE')
             conversations_with_feedback = cursor.fetchone()[0]
             
-            # Tipos de feedback
+            # Feedback types
             cursor.execute('''
                 SELECT feedback_type, COUNT(*) 
                 FROM feedback 
@@ -141,7 +141,7 @@ class DatabaseManager:
             }
     
     def get_unprocessed_feedback(self) -> List[Dict[str, Any]]:
-        """Obtener feedback no procesado"""
+        """Get unprocessed feedback"""
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
             cursor.execute('''
@@ -166,5 +166,5 @@ class DatabaseManager:
                 for row in rows
             ]
 
-# Instancia global de la base de datos
+# Global database instance
 db = DatabaseManager()

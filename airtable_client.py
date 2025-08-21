@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Módulo para manejar la conexión y consultas a Airtable
+Module to handle Airtable connection and queries
 """
 import os
 from pyairtable import Api, Base, Table
@@ -13,77 +13,77 @@ class AirtableClient:
         self.base_id = os.environ.get("AIRTABLE_BASE_ID")
         
         if not self.api_key or not self.base_id:
-            raise ValueError("AIRTABLE_API_KEY y AIRTABLE_BASE_ID deben estar configurados en .env")
+            raise ValueError("AIRTABLE_API_KEY and AIRTABLE_BASE_ID must be configured in .env")
         
         self.api = Api(self.api_key)
         self.base = Base(self.api_key, self.base_id)
         
-        # Nombres de las tablas
+        # Table names
         self.items_table = "Items per property"
         self.houses_table = "Houses Organization"
         
-        # Cache para mejorar rendimiento
+        # Cache to improve performance
         self._cache = {}
-        self._cache_timeout = 300  # 5 minutos
+        self._cache_timeout = 300  # 5 minutes
     
     def get_table(self, table_name: str) -> Table:
-        """Obtener una tabla específica"""
+        """Get a specific table"""
         return self.base.table(table_name)
     
     def search_items(self, query: str) -> List[Dict[str, Any]]:
         """
-        Buscar items en la tabla 'Items per property'
+        Search items in the 'Items per property' table
         """
         try:
             table = self.get_table(self.items_table)
             
-            # Obtener todos los registros
+            # Get all records
             records = table.all()
             
-            # Filtrar basado en la consulta
+            # Filter based on query
             query_lower = query.lower()
             matching_records = []
             
             for record in records:
                 fields = record.get('fields', {})
                 
-                # Buscar en campos específicos basados en la estructura real
+                # Search in specific fields based on actual structure
                 searchable_text = ""
                 
-                # Campo Code (descripción del item)
+                # Code field (item description)
                 code = fields.get('Code', '')
                 if isinstance(code, str):
                     searchable_text += f" {code.lower()}"
                 
-                # Campo Make (Brand) - marca
+                # Make (Brand) field - brand
                 make = fields.get('Make (Brand)', '')
                 if isinstance(make, str):
                     searchable_text += f" {make.lower()}"
                 
-                # Campo Model - modelo
+                # Model field - model
                 model = fields.get('Model', '')
                 if isinstance(model, str):
                     searchable_text += f" {model.lower()}"
                 
-                # Campo Category - categoría
+                # Category field - category
                 category = fields.get('Category', [])
                 if isinstance(category, list):
                     searchable_text += f" {' '.join(str(cat).lower() for cat in category)}"
                 
-                # Campo Level of the house - nivel
+                # Level of the house field - level
                 level = fields.get('Level of the house', [])
                 if isinstance(level, list):
                     searchable_text += f" {' '.join(str(lvl).lower() for lvl in level)}"
                 
-                # Verificar si la consulta coincide (búsqueda más flexible)
+                # Check if query matches (more flexible search)
                 query_words = query_lower.split()
                 matches = 0
                 
                 for word in query_words:
-                    if len(word) > 2 and word in searchable_text:  # Solo palabras de más de 2 caracteres
+                    if len(word) > 2 and word in searchable_text:  # Only words longer than 2 characters
                         matches += 1
                 
-                # Si al menos una palabra coincide, incluir el registro
+                # If at least one word matches, include the record
                 if matches > 0:
                     matching_records.append({
                         'id': record['id'],
@@ -94,53 +94,53 @@ class AirtableClient:
             return matching_records
             
         except Exception as e:
-            print(f"❌ Error buscando items en Airtable: {e}")
+            print(f"❌ Error searching items in Airtable: {e}")
             return []
     
     def search_houses(self, query: str) -> List[Dict[str, Any]]:
         """
-        Buscar información de organización de casas
+        Search house organization information
         """
         try:
             table = self.get_table(self.houses_table)
             
-            # Obtener todos los registros
+            # Get all records
             records = table.all()
             
-            # Filtrar basado en la consulta
+            # Filter based on query
             query_lower = query.lower()
             matching_records = []
             
             for record in records:
                 fields = record.get('fields', {})
                 
-                # Buscar en campos específicos basados en la estructura real
+                # Search in specific fields based on actual structure
                 searchable_text = ""
                 
-                # Campo Cod (descripción del espacio)
+                # Cod field (space description)
                 cod = fields.get('Cod', '')
                 if isinstance(cod, str):
                     searchable_text += f" {cod.lower()}"
                 
-                # Campo Space (referencias a espacios)
+                # Space field (space references)
                 space = fields.get('Space', [])
                 if isinstance(space, list):
                     searchable_text += f" {' '.join(str(sp).lower() for sp in space)}"
                 
-                # Campo Properties (referencias a propiedades)
+                # Properties field (property references)
                 properties = fields.get('Properties', [])
                 if isinstance(properties, list):
                     searchable_text += f" {' '.join(str(prop).lower() for prop in properties)}"
                 
-                # Verificar si la consulta coincide (búsqueda más flexible)
+                # Check if query matches (more flexible search)
                 query_words = query_lower.split()
                 matches = 0
                 
                 for word in query_words:
-                    if len(word) > 2 and word in searchable_text:  # Solo palabras de más de 2 caracteres
+                    if len(word) > 2 and word in searchable_text:  # Only words longer than 2 characters
                         matches += 1
                 
-                # Si al menos una palabra coincide, incluir el registro
+                # If at least one word matches, include the record
                 if matches > 0:
                     matching_records.append({
                         'id': record['id'],
@@ -151,15 +151,15 @@ class AirtableClient:
             return matching_records
             
         except Exception as e:
-            print(f"❌ Error buscando houses en Airtable: {e}")
+            print(f"❌ Error searching houses in Airtable: {e}")
             return []
     
     def get_property_info(self, property_name: str = None) -> Dict[str, Any]:
         """
-        Obtener información completa de una propiedad
+        Get complete property information
         """
         try:
-            # Buscar en ambas tablas
+            # Search in both tables
             items = self.search_items(property_name or "")
             houses = self.search_houses(property_name or "")
             
@@ -170,36 +170,36 @@ class AirtableClient:
             }
             
         except Exception as e:
-            print(f"❌ Error obteniendo información de propiedad: {e}")
+            print(f"❌ Error getting property information: {e}")
             return {'items': [], 'houses': [], 'property_name': property_name}
     
     def analyze_query(self, query: str) -> Dict[str, Any]:
         """
-        Analizar una consulta para determinar qué tipo de información buscar
+        Analyze a query to determine what type of information to search for
         """
         query_lower = query.lower()
         
-        # Patrones para identificar tipos de consultas
+        # Patterns to identify query types
         patterns = {
-            'electrodomesticos': [
-                r'electrodomésticos?', r'nevera', r'refrigerador', r'horno', 
-                r'microondas', r'lavadora', r'secadora', r'cafetera', r'tostadora'
+            'appliances': [
+                r'appliances?', r'refrigerator', r'fridge', r'oven', 
+                r'microwave', r'washer', r'dryer', r'coffee maker', r'toaster'
             ],
-            'habitaciones': [
-                r'habitaciones?', r'cuartos?', r'dormitorios?', r'baños?', 
-                r'cocina', r'sala', r'comedor', r'terraza', r'balcón'
+            'rooms': [
+                r'rooms?', r'bedrooms?', r'bathrooms?', r'kitchen', 
+                r'living room', r'dining room', r'terrace', r'balcony'
             ],
-            'amenidades': [
-                r'piscina', r'jacuzzi', r'hot tub', r'gimnasio', r'wifi', 
-                r'aire acondicionado', r'calefacción', r'tv', r'televisión'
+            'amenities': [
+                r'pool', r'jacuzzi', r'hot tub', r'gym', r'wifi', 
+                r'air conditioning', r'heating', r'tv', r'television'
             ],
-            'ubicacion': [
-                r'piso', r'nivel', r'planta', r'ubicación', r'localización',
-                r'primer', r'segundo', r'tercer', r'cuarto'
+            'location': [
+                r'floor', r'level', r'story', r'location',
+                r'first', r'second', r'third', r'fourth'
             ]
         }
         
-        # Determinar qué tipo de información buscar
+        # Determine what type of information to search for
         query_type = 'general'
         for category, pattern_list in patterns.items():
             for pattern in pattern_list:
@@ -217,24 +217,24 @@ class AirtableClient:
     
     def format_response(self, data: Dict[str, Any], query: str) -> str:
         """
-        Formatear la respuesta basada en los datos de Airtable
+        Format response based on Airtable data
         """
         items = data.get('items', [])
         houses = data.get('houses', [])
         
         if not items and not houses:
-            return "No encontré información específica sobre eso en mi base de datos."
+            return "I didn't find specific information about that in my database."
         
         response_parts = []
         
-        # Formatear items
+        # Format items
         if items:
-            response_parts.append("📦 **Items encontrados:**")
-            for item in items[:5]:  # Limitar a 5 items
+            response_parts.append("📦 **Items found:**")
+            for item in items[:5]:  # Limit to 5 items
                 fields = item.get('fields', {})
                 
-                # Campos reales de la tabla Items per property
-                code = fields.get('Code', 'Sin descripción')
+                # Real fields from Items per property table
+                code = fields.get('Code', 'No description')
                 make = fields.get('Make (Brand)', '')
                 model = fields.get('Model', '')
                 category = fields.get('Category', [])
@@ -243,34 +243,34 @@ class AirtableClient:
                 
                 item_text = f"• **{code}**"
                 if make:
-                    item_text += f" (Marca: {make})"
+                    item_text += f" (Brand: {make})"
                 if model:
-                    item_text += f" (Modelo: {model})"
+                    item_text += f" (Model: {model})"
                 if category:
-                    item_text += f" (Categoría: {', '.join(category)})"
+                    item_text += f" (Category: {', '.join(category)})"
                 if level:
-                    item_text += f" (Nivel: {', '.join(level)})"
+                    item_text += f" (Level: {', '.join(level)})"
                 if status:
-                    item_text += f" (Estado: {status})"
+                    item_text += f" (Status: {status})"
                 
                 response_parts.append(item_text)
         
-        # Formatear información de organización
+        # Format organization information
         if houses:
-            response_parts.append("\n🏠 **Organización de la casa:**")
-            for house in houses[:3]:  # Limitar a 3 registros
+            response_parts.append("\n🏠 **House organization:**")
+            for house in houses[:3]:  # Limit to 3 records
                 fields = house.get('fields', {})
                 
-                # Campos reales de la tabla Houses Organization
-                cod = fields.get('Cod', 'Sin especificar')
+                # Real fields from Houses Organization table
+                cod = fields.get('Cod', 'Not specified')
                 space = fields.get('Space', [])
                 properties = fields.get('Properties', [])
                 
                 house_text = f"• **{cod}**"
                 if space:
-                    house_text += f" (Espacios: {len(space)} referencias)"
+                    house_text += f" (Spaces: {len(space)} references)"
                 if properties:
-                    house_text += f" (Propiedades: {len(properties)} referencias)"
+                    house_text += f" (Properties: {len(properties)} references)"
                 
                 response_parts.append(house_text)
         
@@ -278,25 +278,25 @@ class AirtableClient:
     
     def test_connection(self) -> bool:
         """
-        Probar la conexión con Airtable
+        Test Airtable connection
         """
         try:
-            # Intentar obtener un registro de cada tabla
+            # Try to get a record from each table
             items_table = self.get_table(self.items_table)
             houses_table = self.get_table(self.houses_table)
             
-            # Obtener un registro de prueba
+            # Get a test record
             items_table.all(max_records=1)
             houses_table.all(max_records=1)
             
-            print("✅ Conexión con Airtable exitosa")
+            print("✅ Airtable connection successful")
             return True
             
         except Exception as e:
-            print(f"❌ Error conectando con Airtable: {e}")
+            print(f"❌ Error connecting to Airtable: {e}")
             return False
 
-# Instancia global del cliente de Airtable (se inicializará cuando se necesite)
+# Global Airtable client instance (will be initialized when needed)
 airtable_client = None
 
 def get_airtable_client():

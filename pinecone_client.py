@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Módulo para manejar Pinecone con ejemplos de respuestas exitosas
+Module to handle Pinecone with successful response examples
 """
 import os
 from pinecone import Pinecone
@@ -19,51 +19,51 @@ class PineconeExamplesManager:
         self.index_name = os.environ.get("PINECONE_INDEX_NAME")
         
         if not all([self.api_key, self.environment, self.index_name]):
-            raise ValueError("PINECONE_API_KEY, PINECONE_ENVIRONMENT y PINECONE_INDEX_NAME deben estar configurados en .env")
+            raise ValueError("PINECONE_API_KEY, PINECONE_ENVIRONMENT and PINECONE_INDEX_NAME must be configured in .env")
         
-        # Inicializar Pinecone (nueva API)
+        # Initialize Pinecone (new API)
         self.pc = Pinecone(api_key=self.api_key)
         
-        # Conectar al índice
+        # Connect to index
         self.index = self.pc.Index(self.index_name)
         
-        # Cliente OpenAI para embeddings
+        # OpenAI client for embeddings
         self.openai_client = OpenAI()
         
-        print(f"✅ Conectado a Pinecone index: {self.index_name}")
+        print(f"✅ Connected to Pinecone index: {self.index_name}")
     
     def create_embedding(self, text: str) -> List[float]:
-        """Crear embedding de un texto usando OpenAI"""
+        """Create embedding of text using OpenAI"""
         try:
             response = self.openai_client.embeddings.create(
-                model="text-embedding-ada-002",  # Usar modelo ada-002 para 1536 dimensiones
+                model="text-embedding-ada-002",  # Use ada-002 model for 1536 dimensions
                 input=text
             )
             return response.data[0].embedding
         except Exception as e:
-            print(f"❌ Error creando embedding: {e}")
+            print(f"❌ Error creating embedding: {e}")
             return []
     
     def add_example(self, query: str, response: str, user_feedback: str = None, metadata: Dict = None) -> bool:
         """
-        Agregar un ejemplo de respuesta exitosa a Pinecone
+        Add a successful response example to Pinecone
         
         Args:
-            query: La pregunta original del usuario
-            response: La respuesta que el usuario considera correcta
-            user_feedback: Comentario adicional del usuario (opcional)
-            metadata: Metadatos adicionales (opcional)
+            query: The user's original question
+            response: The response the user considers correct
+            user_feedback: Additional user comment (optional)
+            metadata: Additional metadata (optional)
         """
         try:
-            # Crear embedding del query
+            # Create query embedding
             query_embedding = self.create_embedding(query)
             if not query_embedding:
                 return False
             
-            # Crear ID único
+            # Create unique ID
             example_id = f"example_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{hash(query) % 10000}"
             
-            # Preparar metadatos
+            # Prepare metadata
             example_metadata = {
                 "query": query,
                 "response": response,
@@ -74,11 +74,11 @@ class PineconeExamplesManager:
                 "response_length": len(response)
             }
             
-            # Agregar metadatos adicionales si existen
+            # Add additional metadata if exists
             if metadata:
                 example_metadata.update(metadata)
             
-            # Insertar en Pinecone
+            # Insert into Pinecone
             self.index.upsert(
                 vectors=[{
                     "id": example_id,
@@ -87,38 +87,38 @@ class PineconeExamplesManager:
                 }]
             )
             
-            print(f"✅ Ejemplo agregado: {example_id}")
+            print(f"✅ Example added: {example_id}")
             return True
             
         except Exception as e:
-            print(f"❌ Error agregando ejemplo: {e}")
+            print(f"❌ Error adding example: {e}")
             return False
     
     def search_similar_examples(self, query: str, top_k: int = 3) -> List[Dict[str, Any]]:
         """
-        Buscar ejemplos similares a una consulta
+        Search for examples similar to a query
         
         Args:
-            query: La consulta para buscar ejemplos similares
-            top_k: Número máximo de ejemplos a retornar
+            query: The query to search for similar examples
+            top_k: Maximum number of examples to return
         
         Returns:
-            Lista de ejemplos similares con sus metadatos
+            List of similar examples with their metadata
         """
         try:
-            # Crear embedding del query
+            # Create query embedding
             query_embedding = self.create_embedding(query)
             if not query_embedding:
                 return []
             
-            # Buscar en Pinecone
+            # Search in Pinecone
             results = self.index.query(
                 vector=query_embedding,
                 top_k=top_k,
                 include_metadata=True
             )
             
-            # Procesar resultados
+            # Process results
             examples = []
             for match in results.matches:
                 if match.metadata:
@@ -134,43 +134,43 @@ class PineconeExamplesManager:
             return examples
             
         except Exception as e:
-            print(f"❌ Error buscando ejemplos: {e}")
+            print(f"❌ Error searching examples: {e}")
             return []
     
     def get_examples_for_context(self, query: str, top_k: int = 2) -> str:
         """
-        Obtener ejemplos similares formateados para usar como contexto
+        Get similar examples formatted for use as context
         
         Args:
-            query: La consulta actual
-            top_k: Número de ejemplos a incluir
+            query: The current query
+            top_k: Number of examples to include
         
         Returns:
-            String formateado con ejemplos para usar como contexto
+            Formatted string with examples to use as context
         """
         examples = self.search_similar_examples(query, top_k)
         
         if not examples:
             return ""
         
-        context = "\n\n📚 **Ejemplos de respuestas exitosas similares:**\n"
+        context = "\n\n📚 **Similar successful response examples:**\n"
         
         for i, example in enumerate(examples, 1):
-            context += f"\n**Ejemplo {i}** (similitud: {example['score']:.2f}):\n"
-            context += f"**Pregunta:** {example['query']}\n"
-            context += f"**Respuesta exitosa:** {example['response']}\n"
+            context += f"\n**Example {i}** (similarity: {example['score']:.2f}):\n"
+            context += f"**Question:** {example['query']}\n"
+            context += f"**Successful response:** {example['response']}\n"
             
             if example['user_feedback']:
-                context += f"**Feedback del usuario:** {example['user_feedback']}\n"
+                context += f"**User feedback:** {example['user_feedback']}\n"
         
         return context
     
     def get_all_examples(self, limit: int = 10) -> List[Dict[str, Any]]:
-        """Obtener todos los ejemplos almacenados (para debugging)"""
+        """Get all stored examples (for debugging)"""
         try:
-            # Buscar todos los vectores
+            # Search all vectors
             results = self.index.query(
-                vector=[0] * 1536,  # Vector de ceros para buscar todo (1536 dimensiones)
+                vector=[0] * 1536,  # Zero vector to search everything (1536 dimensions)
                 top_k=limit,
                 include_metadata=True
             )
@@ -190,21 +190,21 @@ class PineconeExamplesManager:
             return examples
             
         except Exception as e:
-            print(f"❌ Error obteniendo ejemplos: {e}")
+            print(f"❌ Error getting examples: {e}")
             return []
     
     def delete_example(self, example_id: str) -> bool:
-        """Eliminar un ejemplo específico"""
+        """Delete a specific example"""
         try:
             self.index.delete(ids=[example_id])
-            print(f"✅ Ejemplo eliminado: {example_id}")
+            print(f"✅ Example deleted: {example_id}")
             return True
         except Exception as e:
-            print(f"❌ Error eliminando ejemplo: {e}")
+            print(f"❌ Error deleting example: {e}")
             return False
     
     def get_index_stats(self) -> Dict[str, Any]:
-        """Obtener estadísticas del índice"""
+        """Get index statistics"""
         try:
             stats = self.index.describe_index_stats()
             return {
@@ -214,10 +214,10 @@ class PineconeExamplesManager:
                 "namespaces": stats.namespaces
             }
         except Exception as e:
-            print(f"❌ Error obteniendo estadísticas: {e}")
+            print(f"❌ Error getting statistics: {e}")
             return {}
 
-# Instancia global del manager de Pinecone
+# Global Pinecone manager instance
 pinecone_manager = None
 
 def get_pinecone_manager():
