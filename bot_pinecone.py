@@ -73,41 +73,40 @@ def handle_msg(update, context):
             context_parts.append(pinecone_context)
             print(f"📚 Pinecone context: {len(pinecone_context)} characters")
         
-        # Determine which source to use
+        # Always use OpenAI Assistant, but with context if available
+        print("🧠 Using OpenAI Assistant...")
+        
+        # 1) thread per chat
+        if chat_id not in threads:
+            t = client.beta.threads.create()
+            threads[chat_id] = t.id
+        thread_id = threads[chat_id]
+
+        # 2) Prepare message with context if available
+        message_content = text
         if context_parts:
-            # Use combined context
-            reply = "\n\n".join(context_parts)
-            used_rag = False
-            used_airtable = bool(airtable_data and (airtable_data['items'] or airtable_data['houses']))
-            used_pinecone = bool(pinecone_context)
-        else:
-            # Use OpenAI Assistant (RAG)
-            print("🧠 Using OpenAI Assistant...")
-            
-            # 1) thread per chat
-            if chat_id not in threads:
-                t = client.beta.threads.create()
-                threads[chat_id] = t.id
-            thread_id = threads[chat_id]
+            context_text = "\n\n".join(context_parts)
+            message_content = f"Context for reference:\n{context_text}\n\nGuest question: {text}"
+            print(f"📝 Message with context: {len(message_content)} characters")
 
-            # 2) user message
-            client.beta.threads.messages.create(thread_id=thread_id, role="user", content=text)
+        # 3) user message
+        client.beta.threads.messages.create(thread_id=thread_id, role="user", content=message_content)
 
-            # 3) Assistant run
-            run = client.beta.threads.runs.create(thread_id=thread_id, assistant_id=ASSISTANT_ID)
+        # 4) Assistant run
+        run = client.beta.threads.runs.create(thread_id=thread_id, assistant_id=ASSISTANT_ID)
 
-            # 4) basic polling
-            while True:
-                r = client.beta.threads.runs.retrieve(thread_id=thread_id, run_id=run.id)
-                if r.status in ["completed","failed","requires_action"]: break
-                time.sleep(0.7)
+        # 5) basic polling
+        while True:
+            r = client.beta.threads.runs.retrieve(thread_id=thread_id, run_id=run.id)
+            if r.status in ["completed","failed","requires_action"]: break
+            time.sleep(0.7)
 
-            # 5) last response
-            msgs = client.beta.threads.messages.list(thread_id=thread_id, order="desc")
-            reply = msgs.data[0].content[0].text.value
-            used_rag = True
-            used_airtable = False
-            used_pinecone = False
+        # 6) last response
+        msgs = client.beta.threads.messages.list(thread_id=thread_id, order="desc")
+        reply = msgs.data[0].content[0].text.value
+        used_rag = True
+        used_airtable = bool(airtable_data and (airtable_data['items'] or airtable_data['houses']))
+        used_pinecone = bool(pinecone_context)
         
         # Calculate response time
         response_time = time.time() - start_time
