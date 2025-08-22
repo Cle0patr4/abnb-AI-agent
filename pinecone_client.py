@@ -111,27 +111,49 @@ class PineconeExamplesManager:
             if not query_embedding:
                 return []
             
-            # Search in Pinecone
+            # Search in Pinecone with more results to allow for reordering
             results = self.index.query(
                 vector=query_embedding,
-                top_k=top_k,
+                top_k=top_k * 2,  # Get more results to allow for reordering
                 include_metadata=True
             )
             
-            # Process results
+            # Process results and add recency boost
             examples = []
             for match in results.matches:
                 if match.metadata:
+                    created_at = match.metadata.get("created_at", "")
+                    
+                    # Calculate recency boost (newer examples get higher priority)
+                    recency_boost = 0.0
+                    if created_at:
+                        try:
+                            from datetime import datetime
+                            created_time = datetime.fromisoformat(created_at.replace('Z', '+00:00'))
+                            now = datetime.now(created_time.tzinfo)
+                            hours_old = (now - created_time).total_seconds() / 3600
+                            # Boost newer examples (within last 24 hours get +0.1, older get +0.05)
+                            recency_boost = 0.1 if hours_old < 24 else 0.05
+                        except:
+                            recency_boost = 0.05
+                    
+                    # Adjust score with recency boost
+                    adjusted_score = match.score + recency_boost
+                    
                     examples.append({
                         "id": match.id,
-                        "score": match.score,
+                        "score": adjusted_score,
+                        "original_score": match.score,
+                        "recency_boost": recency_boost,
                         "query": match.metadata.get("query", ""),
                         "response": match.metadata.get("response", ""),
                         "user_feedback": match.metadata.get("user_feedback", ""),
-                        "created_at": match.metadata.get("created_at", "")
+                        "created_at": created_at
                     })
             
-            return examples
+            # Sort by adjusted score (highest first) and return top_k
+            examples.sort(key=lambda x: x['score'], reverse=True)
+            return examples[:top_k]
             
         except Exception as e:
             print(f"❌ Error searching examples: {e}")
@@ -156,7 +178,9 @@ class PineconeExamplesManager:
         context = "\n\n📚 **Similar successful response examples:**\n"
         
         for i, example in enumerate(examples, 1):
-            context += f"\n**Example {i}** (similarity: {example['score']:.2f}):\n"
+            # Add recency indicator
+            recency_indicator = "🆕" if example.get('recency_boost', 0) >= 0.1 else "📝"
+            context += f"\n{recency_indicator} **Example {i}** (similarity: {example['score']:.2f}):\n"
             context += f"**Question:** {example['query']}\n"
             context += f"**Successful response:** {example['response']}\n"
             

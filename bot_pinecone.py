@@ -33,7 +33,9 @@ def handle_msg(update, context):
         print(f"📨 Message received from {chat_id}: {text[:50]}...")
 
         # Verificar si el usuario está en modo feedback
+        print(f"🔍 User state for {chat_id}: {user_states.get(chat_id, 'normal')}")
         if chat_id in user_states and user_states[chat_id] == 'waiting_feedback':
+            print(f"📝 Processing feedback input for {chat_id}")
             handle_feedback_input(update, context)
             return
 
@@ -125,7 +127,7 @@ def handle_msg(update, context):
         )
         
         # Save conversation ID for feedback
-        if chat_id not in user_states:
+        if chat_id not in user_states or not isinstance(user_states[chat_id], dict):
             user_states[chat_id] = {}
         user_states[chat_id]['last_conversation_id'] = conversation_id
         
@@ -133,6 +135,9 @@ def handle_msg(update, context):
         
     except Exception as e:
         print(f"❌ Error processing message: {e}")
+        import traceback
+        print(f"🔍 Full error traceback:")
+        traceback.print_exc()
         update.message.reply_text("Sorry, there was an error processing your message. Please try again.")
 
 def handle_feedback_input(update, context):
@@ -175,6 +180,7 @@ def handle_feedback_input(update, context):
     
     # Reset state
     user_states[chat_id] = 'normal'
+    print(f"✅ Reset user state for {chat_id} to 'normal'")
 
 def feedback_command(update, context):
     """Command /feedback - Request expected response"""
@@ -188,24 +194,19 @@ def feedback_command(update, context):
     
     # Show last conversation and request expected response
     feedback_text = f"""
-📝 **Last conversation:**
+🤖 **Feedback Request**
 
-**Your question:** {last_conv['query']}
+**Guest Question:** {last_conv['query']}
 
-**My response:** {last_conv['response']}
+**Bot Response:** {last_conv['response']}
 
 ---
-**What was the response you expected?**
-
-Please write the response you would have liked to receive. This will help me learn and improve my future responses.
-
-**Example:**
-If you asked "What's in the kitchen?" and my response wasn't what you expected, write something like:
-"The kitchen has a Samsung refrigerator, electric oven, microwave, and coffee maker. All are in perfect condition."
+**💡 How should I have responded?**
 """
     
     update.message.reply_text(feedback_text)
     user_states[chat_id] = 'waiting_feedback'
+    print(f"⏳ Set user state for {chat_id} to 'waiting_feedback'")
 
 def stats_command(update, context):
     """Command /stats"""
